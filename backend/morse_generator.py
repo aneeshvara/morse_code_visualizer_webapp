@@ -1,9 +1,7 @@
 # backend/morse_generator.py
-from moviepy.editor import ImageClip, concatenate_videoclips, VideoFileClip
+from moviepy import ImageClip, concatenate_videoclips, VideoFileClip
 from PIL import Image
 import os
-
-Image.ANTIALIAS = Image.Resampling.LANCZOS
 
 MORSE_CODE_DICT = {
     "A": ".-", "B": "-...", "C": "-.-.", "D": "-..",
@@ -38,6 +36,12 @@ def generate_morse_video(message: str, output_path: str):
     Generate a morse video for `message` and write to `output_path`.
     Returns the output_path on success, raises exceptions on failure.
     """
+    # Validate that required assets exist
+    if not os.path.exists(ON_CLIP):
+        raise FileNotFoundError(f"Required asset not found: {ON_CLIP}")
+    if not os.path.exists(OFF_CLIP):
+        raise FileNotFoundError(f"Required asset not found: {OFF_CLIP}")
+    
     text_message = (message or "").upper()
 
     # convert to morse
@@ -79,10 +83,14 @@ def generate_morse_video(message: str, output_path: str):
             clips.append(ImageClip(OFF_CLIP, duration=LETTER_SPACE))
         i += 1
 
-    # add glitch and final gap
+    # add glitch (optional) and final gap
     if os.path.exists(GLITCH_CLIP):
-        glitch_clip = VideoFileClip(GLITCH_CLIP).resize((width, height))
-        clips.append(glitch_clip)
+        try:
+            glitch_clip = VideoFileClip(GLITCH_CLIP).resize((width, height))
+            clips.append(glitch_clip)
+        except Exception as e:
+            # If glitch video can't be loaded, skip it
+            pass
     clips.append(ImageClip(OFF_CLIP, duration=1))
 
     final = concatenate_videoclips(clips, method="compose")

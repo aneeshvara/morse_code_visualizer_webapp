@@ -4,15 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uuid, os, threading, time
+from dotenv import load_dotenv
 
 from .morse_generator import generate_morse_video
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI()
 
 # Allow frontend (served from file:// or another host) to call this API during dev
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # during dev; lock this down in production
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,8 +48,9 @@ def generate(msg: Message):
         generate_morse_video(msg.text, out_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    # schedule delete after 60 seconds (so frontend can download/play)
-    schedule_delete(out_path, delay=60)
+    # schedule delete after configured retention time
+    retention_seconds = int(os.getenv("VIDEO_RETENTION_SECONDS", "60"))
+    schedule_delete(out_path, delay=retention_seconds)
     return {"file_url": f"/video/{uid}"}
 
 @app.get("/video/{uid}")
